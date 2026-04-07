@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Visual</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background-color: #141414; color: white; font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+        h2 { font-size: 18px; margin-left: 10px; border-left: 4px solid #E50914; padding-left: 8px; }
+        .row { display: flex; overflow-x: auto; gap: 10px; padding: 10px; scroll-behavior: smooth; }
+        .row::-webkit-scrollbar { display: none; }
+        .card { flex: 0 0 120px; text-align: center; cursor: pointer; transition: transform 0.2s; }
+        .card:active { transform: scale(0.95); }
+        .card img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .card p { font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+
+    <h2>🔥 Tendencias</h2>
+    <div class="row" id="trending-row">Cargando...</div>
+
+    <h2>✨ Novedades</h2>
+    <div class="row" id="recent-row">Cargando...</div>
+
+    <script>
+        // TU CLAVE DE TMDB
+        const TMDB_KEY = "PON_TU_CLAVE_API_AQUI_TMDB";
+        const BOT_USERNAME = "PON_TU_USUARIO_DEL_BOT"; // ej: mi_bot_descargas
+
+        // Extraer los datos enviados por el bot desde la URL
+        const params = new URLSearchParams(window.location.search);
+        const dataEncoded = params.get("data");
+
+        if(dataEncoded) {
+            try {
+                // Decodificar Base64 a JSON
+                const jsonStr = decodeURIComponent(escape(atob(decodeURIComponent(dataEncoded))));
+                const catalog = JSON.parse(jsonStr);
+
+                renderRow(catalog.trending, "trending-row");
+                renderRow(catalog.recent, "recent-row");
+
+            } catch (e) {
+                document.body.innerHTML = "Error al cargar los datos.";
+            }
+        }
+
+        async function renderRow(items, elementId) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = ""; // Limpiar
+
+            for (let item of items) {
+                // Limpiar nombre (quitar 1080p, mp4, etc) para buscar
+                let cleanName = item.title.replace(/\.[^/.]+$/, "").replace(/[._]/g, " ").substring(0, 30);
+                
+                // Pedir portada a TMDB desde el celular del usuario
+                let res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&language=es-ES&query=${encodeURIComponent(cleanName)}`);
+                let data = await res.json();
+                
+                let posterUrl = "https://via.placeholder.com/120x180/333333/FFFFFF?text=Sin+Portada";
+                if(data.results && data.results.length > 0 && data.results[0].poster_path) {
+                    posterUrl = `https://image.tmdb.org/t/p/w200${data.results[0].poster_path}`;
+                }
+
+                // Crear la tarjeta visual
+                let card = document.createElement("div");
+                card.className = "card";
+                card.innerHTML = `<img src="${posterUrl}" alt="Poster"><p>${cleanName}</p>`;
+                
+                // Cuando el usuario toca la imagen, se descarga en Telegram
+                card.onclick = () => {
+                    Telegram.WebApp.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=get_${item.id}`);
+                };
+                
+                container.appendChild(card);
+            }
+        }
+    </script>
+</body>
+</html>
